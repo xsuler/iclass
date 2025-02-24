@@ -5,6 +5,9 @@ from iclass import analyze_image
 import json
 from flask_cors import CORS
 import time
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = Flask(__name__)
 CORS(app, supports_credentials=True, origins=["*"])

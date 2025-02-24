@@ -1,8 +1,8 @@
 {
-  "miniprogramRoot": "./",
+  "miniprogramRoot": "dist/",
   "projectname": "icls",
   "description": "",
-  "appid": "touristappid",
+  "appid": "wx39478d63c040d4a0",
   "setting": {
     "urlCheck": true,
     "es6": false,
@@ -16,10 +16,25 @@
     "coverView": true,
     "showShadowRootInWxmlPanel": false,
     "scopeDataCheck": false,
-    "useCompilerModule": false
+    "useCompilerModule": false,
+    "babelSetting": {
+      "ignore": [],
+      "disablePlugins": [],
+      "outputPath": ""
+    }
   },
   "compileType": "miniprogram",
   "simulatorType": "wechat",
   "simulatorPluginLibVersion": {},
-  "condition": {}
+  "condition": {},
+  "libVersion": "3.7.8",
+  "srcMiniprogramRoot": "dist/",
+  "packOptions": {
+    "ignore": [],
+    "include": []
+  },
+  "editorSetting": {
+    "tabIndent": "insertSpaces",
+    "tabSize": 2
+  }
 }

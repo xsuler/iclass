@@ -1,10 +1,11 @@
-import { View, Text, Canvas } from '@tarojs/components'
+import { View, Text } from '@tarojs/components'
 import { useState, useEffect, useMemo } from 'react'
 import Calendar from '../../components/Calendar'
 import './dashboard.scss'
 import Taro from '@tarojs/taro'
 import { AtFab } from 'taro-ui'
 import ImageUploadDialog from '../../components/ImageUploadDialog'
+
 
 interface CourseEvent {
   date: string
@@ -18,6 +19,16 @@ interface CourseEvent {
   class_location?: string
   class_instructor?: string
   class_score_stars?: number
+}
+
+interface Course {
+  class_date: string
+  class_time: string
+  class_name: string
+  class_location?: string
+  class_instructor?: string
+  class_score_stars?: number
+  checked?: boolean
 }
 
 interface Stats {
@@ -253,7 +264,7 @@ const Dashboard = () => {
     }))
 
     // 获取已打卡的课程
-    const checkedCourses = courseEvents.filter(event => event.checked)
+    const checkedCourses = courseEvents.filter(event => !event.checked)
 
     // 统计每个已打卡课程的详细信息
     checkedCourses.forEach(event => {
