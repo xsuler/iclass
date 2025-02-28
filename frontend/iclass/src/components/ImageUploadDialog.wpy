@@ -1,0 +1,154 @@
+<style lang="less">
+.image-upload-dialog {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+
+  .dialog-content {
+    background: white;
+    border-radius: 16rpx;
+    padding: 24rpx;
+    width: 80%;
+    box-shadow: 0 8rpx 32rpx rgba(0,0,0,0.1);
+    
+    .dialog-header {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 20rpx;
+    }
+    
+    .upload-box {
+      border: 2rpx dashed #ccc;
+      border-radius: 8rpx;
+      padding: 40rpx;
+      text-align: center;
+    }
+    
+    .button-group {
+      margin-top: 24rpx;
+      display: flex;
+      gap: 16rpx;
+      
+      button {
+        flex: 1;
+      }
+    }
+  }
+}
+</style>
+
+<template>
+  <view class="image-upload-dialog" wx:if="{{isOpen}}">
+    <view class="dialog-content">
+      <view class="dialog-header">
+        <text class="title">上传图片</text>
+        <text class="close" @tap="handleClose">×</text>
+      </view>
+      
+      <view class="upload-box" 
+        @tap="handleChooseImage"
+        style="{{isUploading ? 'opacity:0.7;pointer-events:none' : ''}}"
+      >
+        <view class="upload-placeholder">
+          <text class="icon">{{isUploading ? '⏳' : '📸'}}</text>
+          <text class="text">{{isUploading ? '正在上传中...' : '点击上传图片'}}</text>
+          <text class="hint">{{isUploading ? '请稍候' : '支持拍照或从相册选择'}}</text>
+        </view>
+      </view>
+
+      <view class="button-group">
+        <button @tap="handleClose">取消</button>
+      </view>
+    </view>
+  </view>
+</template>
+
+<script>
+import wepy from '@wepy/core'
+
+wepy.component({
+  props: {
+    isOpen: Boolean,
+    onUpload: {
+      type: Function,
+      default: () => {}  // Provide default empty function
+    }
+  },
+
+  data: {
+    isUploading: false,
+    error: ''
+  },
+
+  methods: {
+    handleClose() {
+      this.$emit('close')
+    },
+
+    async handleChooseImage() {
+      try {
+        const res = await wx.chooseImage({
+          count: 1,
+          sizeType: ['compressed'],
+          sourceType: ['album', 'camera']
+        })
+
+        this.isUploading = true
+        this.error = ''
+
+        // 使用官方推荐的上传方式
+        const uploadTask = wx.uploadFile({
+          url: 'http://localhost:5000/upload',
+          filePath: res.tempFilePaths[0],
+          name: 'file',
+          formData: {
+            user: 'admin'
+          },
+          success: (res) => {
+            if (res.statusCode === 200) {
+              try {
+                const data = JSON.parse(res.data)
+                if (data.courses) {
+                  // Use $emit instead of directly calling the prop
+                  this.$emit('upload', data.courses)
+                  this.handleClose()
+                } else {
+                  this.error = '服务器返回数据格式错误'
+                }
+              } catch (e) {
+                this.error = '数据解析失败'
+                console.error(e)
+              }
+            } else {
+              this.error = `上传失败（${res.statusCode}）`
+            }
+          },
+          fail: (err) => {
+            this.error = '网络请求失败'
+            console.error(err)
+          },
+          complete: () => {
+            this.isUploading = false
+          }
+        })
+
+        uploadTask.onProgressUpdate((res) => {
+          console.log('上传进度:', res.progress)
+        })
+
+      } catch (err) {
+        this.error = '选择图片失败'
+        this.isUploading = false
+        console.error(err)
+      }
+    }
+  }
+})
+</script> 

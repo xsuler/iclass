@@ -1,0 +1,308 @@
+<style lang="less">
+.calendar {
+  background: white;
+  border-radius: 16rpx;
+  padding: 24rpx;
+
+  .calendar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16rpx 0;
+    margin-bottom: 16rpx;
+    
+    .nav-button {
+      width: 60rpx;
+      height: 60rpx;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 32rpx;
+      color: #3B82F6;
+      background: #EFF6FF;
+      border-radius: 50%;
+      cursor: pointer;
+      
+      &:active {
+        opacity: 0.8;
+      }
+    }
+    
+    .month-year {
+      font-size: 32rpx;
+      font-weight: bold;
+      color: #1F2937;
+    }
+  }
+
+  .weekdays {
+    display: flex;
+    justify-content: space-between;
+    padding: 16rpx 0;
+    border-bottom: 1rpx solid #eee;
+    
+    .weekday {
+      flex: 1;
+      text-align: center;
+      color: #666;
+      font-size: 28rpx;
+    }
+  }
+  
+  .days-grid {
+    display: flex;
+    flex-wrap: wrap;
+    padding: 16rpx 0;
+    
+    .day {
+      width: 14.28%;
+      height: 120rpx;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      font-size: 28rpx;
+      color: #1F2937;
+      padding: 8rpx;
+      
+      &.empty {
+        pointer-events: none;
+      }
+      
+      &.has-event {
+        .course-list {
+          margin-top: 4rpx;
+          max-height: 80rpx;
+          overflow: hidden;
+        }
+        
+        .course-name {
+          font-size: 20rpx;
+          color: #3B82F6;
+          line-height: 1.2;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+      }
+      
+      &.checked {
+        .event-dot {
+          background: #059669;
+        }
+        
+        .course-name {
+          color: #059669;
+        }
+      }
+      
+      &.past {
+        .event-dot {
+          background: #9CA3AF;
+        }
+        
+        .course-name {
+          color: #6B7280;
+        }
+      }
+      
+      &.today {
+        color: #3B82F6;
+        font-weight: bold;
+        
+        &::after {
+          content: '';
+          position: absolute;
+          bottom: 12rpx;
+          width: 8rpx;
+          height: 8rpx;
+          border-radius: 50%;
+          background: #3B82F6;
+        }
+      }
+      
+      .event-dot {
+        width: 8rpx;
+        height: 8rpx;
+        border-radius: 50%;
+        background: #3B82F6;
+        margin-top: 8rpx;
+      }
+      
+      &::after {
+        display: none;
+      }
+    }
+  }
+}
+</style>
+
+<template>
+  <view class="calendar">
+    <view class="calendar-header">
+      <view class="nav-button" @tap="prevMonth">
+        <text>〈</text>
+      </view>
+      <text class="month-year">{{currentYear}}年{{currentMonth + 1}}月</text>
+      <view class="nav-button" @tap="nextMonth">
+        <text>〉</text>
+      </view>
+    </view>
+
+    <view class="weekdays">
+      <text wx:for="{{weekDays}}" 
+            wx:key="index" 
+            class="weekday">{{item}}</text>
+    </view>
+    
+    <view class="days-grid">
+      <view wx:for="{{days}}" 
+            wx:key="index"
+            class="day {{item.empty ? 'empty' : ''}} {{item.hasEvent ? 'has-event' : ''}} {{item.checked ? 'checked' : ''}} {{item.isToday ? 'today' : ''}} {{item.isPast ? 'past' : ''}}"
+            data-index="{{index}}"
+            @tap="handleDayTap">
+        <text>{{item.day}}</text>
+        <view wx:if="{{item.hasEvent}}" class="course-list">
+          <text wx:for="{{item.events}}" wx:for-item="event" wx:key="index" class="course-name">
+            {{event.class_name}}\n
+          </text>
+        </view>
+      </view>
+    </view>
+  </view>
+</template>
+
+<script>
+import wepy from '@wepy/core'
+
+wepy.component({
+  props: {
+    events: {
+      type: Array,
+      default: () => []
+    }
+  },
+
+  data: {
+    weekDays: ['日', '一', '二', '三', '四', '五', '六'],
+    currentYear: new Date().getFullYear(),
+    currentMonth: new Date().getMonth(),
+    days: []
+  },
+
+  methods: {
+    prevMonth() {
+      if (this.currentMonth === 0) {
+        this.currentYear--
+        this.currentMonth = 11
+      } else {
+        this.currentMonth--
+      }
+      this.generateCalendar()
+    },
+
+    nextMonth() {
+      if (this.currentMonth === 11) {
+        this.currentYear++
+        this.currentMonth = 0
+      } else {
+        this.currentMonth++
+      }
+      this.generateCalendar()
+    },
+
+    generateCalendar() {
+      const firstDay = new Date(this.currentYear, this.currentMonth, 1).getDay()
+      const daysInMonth = new Date(this.currentYear, this.currentMonth + 1, 0).getDate()
+      const today = this.formatDateToChineseFormat(new Date())
+      
+      const days = []
+      for (let i = 0; i < firstDay; i++) {
+        days.push({ 
+          day: '', 
+          events: [],
+          hasEvent: false,
+          checked: false,
+          isToday: false,
+          isPast: false
+        })
+      }
+      
+      for (let day = 1; day <= daysInMonth; day++) {
+        const date = this.formatDateToChineseFormat(new Date(this.currentYear, this.currentMonth, day))
+        const dayEvents = this.events.filter(event => {
+          const eventDateStr = event.class_date || event.date || ''
+          const eventDate = eventDateStr.slice(0, 5)  // Take first 5 chars (MM.DD)
+          return eventDate === date
+        })
+        
+        const isPast = new Date(this.currentYear, this.currentMonth, day) < new Date()
+        
+        days.push({ 
+          day, 
+          date,
+          events: dayEvents,
+          hasEvent: dayEvents.length > 0,
+          checked: dayEvents.some(e => e.checked),
+          isToday: date === today,
+          isPast: isPast
+        })
+      }
+      
+      this.days = days
+    },
+
+    formatDateToChineseFormat(date) {
+      const month = String(date.getMonth() + 1).padStart(2, '0')
+      const day = String(date.getDate()).padStart(2, '0')
+      return `${month}.${day}`
+    },
+
+    handleDayTap(e) {
+      const index = e.currentTarget.dataset.index
+      const day = this.days[index]
+      
+      // Skip empty days
+      if (!day || day.empty) {
+        return
+      }
+      
+      // Emit day select event with the date
+      this.$emit('daySelect', day.date)
+      
+      // If the day has events, also emit the checkin event
+      if (day.events && day.events.length > 0) {
+        // Pass all event data
+        const event = {
+          class_name: day.events[0].class_name || day.events[0].title,
+          class_date: day.events[0].class_date || day.events[0].date,
+          class_time: day.events[0].class_time || day.events[0].time,
+          class_location: day.events[0].class_location || day.events[0].location,
+          class_instructor: day.events[0].class_instructor || day.events[0].instructor,
+          checked: day.events[0].checked
+        }
+        
+        
+      }
+    }
+  },
+
+  watch: {
+    events: {
+      handler(newVal) {
+        if (Array.isArray(newVal)) {
+          this.generateCalendar()
+        }
+      },
+      immediate: true
+    }
+  },
+
+  onLoad() {
+    this.generateCalendar()
+  }
+})
+</script> 

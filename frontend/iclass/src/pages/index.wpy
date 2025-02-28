@@ -1,0 +1,506 @@
+<style lang="less">
+.dashboard-page {
+  padding: 20rpx;
+  min-height: 100vh;
+  background: #F8FAFC;
+  
+  .stats-grid {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 20rpx;
+    
+    .stat-card {
+      flex: 1;
+      background: #fff;
+      border-radius: 16rpx;
+      padding: 24rpx;
+      margin: 0 10rpx;
+      box-shadow: 0 4rpx 12rpx rgba(0,0,0,0.05);
+      
+      text {
+        font-size: 28rpx;
+        color: #1F2937;
+      }
+    }
+  }
+  
+  .calendar-section {
+    background: #fff;
+    border-radius: 16rpx;
+    margin-bottom: 20rpx;
+    box-shadow: 0 4rpx 12rpx rgba(0,0,0,0.05);
+    overflow: hidden;
+  }
+  
+  .today-courses {
+    background: #fff;
+    border-radius: 16rpx;
+    padding: 24rpx;
+    box-shadow: 0 4rpx 12rpx rgba(0,0,0,0.05);
+    
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16rpx;
+      
+      .section-title {
+        font-size: 32rpx;
+        font-weight: bold;
+        color: #1F2937;
+      }
+      
+      .back-to-today {
+        font-size: 24rpx;
+        color: #3B82F6;
+        background: #EFF6FF;
+        padding: 8rpx 16rpx;
+        border-radius: 8rpx;
+        
+        &:active {
+          opacity: 0.8;
+        }
+      }
+    }
+    
+    .course-item {
+      padding: 24rpx;
+      border-bottom: 1rpx solid #eee;
+      display: flex;
+      align-items: flex-start;
+      transition: all 0.3s ease;
+      
+      &:active {
+        background: #F3F4F6;
+      }
+      
+      &.past {
+        opacity: 1;
+        background: #F3F4F6;
+        .time { 
+          color: #64748B !important; 
+        }
+        
+        .title {
+          color: #64748B !important;
+        }
+        
+        .location, .instructor {
+          color: #94A3B8 !important;
+        }
+      }
+      
+      &.checked {
+        background: #F0FDF4;
+        
+        .time { 
+          color: #059669;
+          position: relative;
+          
+          &::after {
+            content: '✓';
+            margin-left: 8rpx;
+            color: #059669;
+          }
+        }
+        
+        .title {
+          color: #059669;
+        }
+        
+        .location, .instructor {
+          color: #065F46;
+        }
+      }
+      
+      .time {
+        font-size: 28rpx;
+        color: #3B82F6;
+        font-weight: bold;
+        margin-right: 24rpx;
+        min-width: 140rpx;
+      }
+      
+      .details {
+        flex: 2;
+        
+        .title {
+          font-size: 30rpx;
+          font-weight: 500;
+          color: #1F2937;
+          margin-bottom: 8rpx;
+          display: block;
+        }
+        
+        .location {
+          font-size: 24rpx;
+          color: #6B7280;
+        }
+      }
+      
+      .instructor {
+        font-size: 24rpx;
+        color: #6B7280;
+        margin-left: 24rpx;
+      }
+      
+      &:last-child {
+        border-bottom: none;
+      }
+    }
+    
+    .no-courses {
+      text-align: center;
+      padding: 48rpx 0;
+      color: #6B7280;
+      font-size: 28rpx;
+    }
+  }
+}
+
+.fab-container {
+  position: fixed;
+  right: 32rpx;
+  bottom: 32rpx;
+  z-index: 100;
+
+  .fab-btn {
+    width: 120rpx;
+    height: 120rpx;
+    border-radius: 50%;
+    background: #3B82F6;
+    box-shadow: 0 6rpx 16rpx rgba(59, 130, 246, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.2s ease;
+    
+    &:active {
+      transform: scale(0.95);
+    }
+    
+    text {
+      font-size: 48rpx;
+    }
+  }
+}
+</style>
+
+<template>
+  <view class="dashboard-page">
+    <!-- 统计卡片 -->
+    <view class="stats-grid">
+      <view class="stat-card">
+        <text>总课程数: {{stats.totalCourses}}</text>
+      </view>
+      <view class="stat-card">
+        <text>已打卡: {{stats.completedCourses}}</text>
+      </view>
+    </view>
+
+    <!-- 日历模块 -->
+    <view class="calendar-section">
+      <calendar :events="courseEvents" @checkin="handleCheckIn" @daySelect="handleDaySelect" />
+    </view>
+
+    <!-- 今日课程 -->
+    <view class="today-courses">
+      <view class="section-header">
+        <text class="section-title">{{sectionTitle}}</text>
+      </view>
+      <block wx:if="{{todayCourses.length > 0}}">
+        <view wx:for="{{todayCourses}}" 
+              wx:key="index" 
+              class="course-item {{item._isPast ? 'past' : ''}} {{item.checked ? 'checked' : ''}}"
+              data-item="{{index}}"
+              @tap="onCourseItemTap">
+          <text class="time">{{item.class_time || item.time}}</text>
+          <view class="details">
+            <text class="title">{{item.class_name || item.title}}</text>
+            <text wx:if="{{item.class_location}}" class="location">📍 {{item.class_location}}</text>
+          </view>
+          <text wx:if="{{item.class_instructor}}" class="instructor">👤 {{item.class_instructor}}</text>
+        </view>
+      </block>
+      <view wx:else class="no-courses">
+        <text>今天没有课程安排</text>
+      </view>
+    </view>
+
+    <!-- 上传按钮 -->
+    <view class="fab-container">
+      <view class="fab-btn" @tap="openUpload">
+        <text>📸</text>
+      </view>
+    </view>
+
+    <image-upload-dialog 
+      :isOpen.sync="showUploadDialog"
+      @close="closeUpload"
+      @upload="handleUpload"
+    />
+  </view>
+</template>
+
+<script>
+import wepy from '@wepy/core'
+
+wepy.page({
+  data: {
+    courseEvents: [],
+    showUploadDialog: false,
+    selectedDate: null,
+    stats: {
+      totalCourses: 0,
+      completedCourses: 0
+    }
+  },
+
+  computed: {
+    todayCourses() {
+      const targetDate = this.selectedDate || this.formatDateToChineseFormat(new Date())
+      
+      return this.courseEvents.filter(course => {
+        const courseDateStr = course.class_date || course.date || ''
+        const cleanDate = courseDateStr.slice(0, 5)
+        return cleanDate === targetDate
+      }).sort((a, b) => {
+        const getTime = (t) => parseInt((t.class_time || t.time || '00:00').replace(':', ''))
+        return getTime(a) - getTime(b)
+      }).map(course => ({
+        ...course,
+        _isPast: this.isEventPast(course)  // Pre-calculate isPast status
+      }))
+    },
+    
+    sectionTitle() {
+      if (!this.selectedDate) {
+        return '今日课程'
+      }
+      
+      const today = this.formatDateToChineseFormat(new Date())
+      if (this.selectedDate === today) {
+        return '今日课程'
+      }
+      
+      return `${this.selectedDate} 课程`
+    }
+  },
+
+  methods: {
+    formatDateToChineseFormat(date) {
+      const month = String(date.getMonth() + 1).padStart(2, '0')
+      const day = String(date.getDate()).padStart(2, '0')
+      return `${month}.${day}`
+    },
+
+    openUpload() {
+      this.showUploadDialog = true
+    },
+    
+    closeUpload() {
+      this.showUploadDialog = false
+    },
+    
+    handleUpload(courses) {
+      const formattedCourses = courses.map(course => ({
+        ...course,
+        class_date: course.class_date || this.formatDateWithWeekday(new Date(course.date)),
+        checked: false
+      }))
+      
+      const existingCourses = this.courseEvents || []
+      const newUniqueCourses = formattedCourses.filter(newCourse => 
+        !existingCourses.some(existingCourse => {
+          const newDate = newCourse.class_date.split(/[ 周]/)[0]
+          const existingDate = (existingCourse.class_date || existingCourse.date || '').split(/[ 周]/)[0]
+          return newDate === existingDate && 
+                 (existingCourse.class_time === newCourse.class_time || 
+                  existingCourse.time === newCourse.class_time)
+        })
+      )
+      
+      this.courseEvents = [...existingCourses, ...newUniqueCourses]
+      this.updateStats()
+      
+      // Save to storage
+      wx.setStorageSync('selected_courses', this.courseEvents)
+      
+      // Show success message
+      wx.showToast({
+        title: newUniqueCourses.length > 0 ? '课程添加成功' : '课程已存在',
+        icon: newUniqueCourses.length > 0 ? 'success' : 'none',
+        duration: 2000
+      })
+    },
+    
+    handleCheckIn(event) {
+      // Check if event is undefined first
+      if (!event) {
+        console.error('No event data received');
+        return;
+      }
+      
+      // Extract event data from different sources
+      const actualEvent = event.detail || event;
+      
+      // Additional check to ensure actualEvent has the required properties
+      if (!actualEvent || (!actualEvent.class_name && !actualEvent.title)) {
+        console.error('Invalid event data:', actualEvent);
+        return;
+      }
+      
+      // Check if the course is past or already checked in
+     
+      console.log('Check-in:', actualEvent.class_name || actualEvent.title);
+      
+      const index = this.courseEvents.findIndex(e => {
+        // Normalize date/time properties
+        const eDate = e.class_date || e.date || '';
+        const eTime = e.class_time || e.time || '';
+        const actualDate = actualEvent.class_date || actualEvent.date || '';
+        const actualTime = actualEvent.class_time || actualEvent.time || '';
+        
+        return eDate.split(/[ 周]/)[0] === actualDate.split(/[ 周]/)[0] && 
+               eTime === actualTime;
+      });
+      
+      if (index !== -1) {
+        // Check if already checked in
+        if (this.courseEvents[index].checked) {
+          wx.showToast({
+            title: '课程已打卡',
+            icon: 'none',
+            duration: 2000
+          });
+          return;
+        }
+       if (this.isEventPast(actualEvent)) {
+        wx.showToast({
+          title: '课程已结束',
+          icon: 'none',
+          duration: 2000
+        });
+        return;
+      }
+        
+        this.courseEvents[index].checked = true;
+        this.updateStats();
+        wx.setStorageSync('selected_courses', this.courseEvents);
+        
+        wx.showToast({
+          title: '打卡成功',
+          icon: 'success',
+          duration: 2000
+        });
+      } else {
+        console.error('Course not found:', actualEvent);
+        wx.showToast({
+          title: '打卡失败',
+          icon: 'none',
+          duration: 2000
+        });
+      }
+
+    },
+    
+    updateStats() {
+      this.stats.totalCourses = this.courseEvents.length
+      this.stats.completedCourses = this.courseEvents.filter(e => e.checked).length
+    },
+
+    formatDateWithWeekday(date) {
+      const month = String(date.getMonth() + 1).padStart(2, '0')
+      const day = String(date.getDate()).padStart(2, '0')
+      const weekDay = ['日', '一', '二', '三', '四', '五', '六'][date.getDay()]
+      return `${month}.${day} 周${weekDay}`
+    },
+
+    isEventPast(event) {
+      const now = new Date()
+      const today = this.formatDateToChineseFormat(now)
+      const eventDateStr = event.class_date || event.date || ''
+      const eventDate = eventDateStr.slice(0, 5)
+      
+      // If we're viewing a past date, all events should be considered past
+      if (this.selectedDate && this.selectedDate < today) {
+        return true
+      }
+      
+      // If we're viewing a future date, no events should be considered past
+      if (this.selectedDate && this.selectedDate > today) {
+        return false
+      }
+      
+      // For today or when no date is selected (which defaults to today)
+      if (eventDate < today) return true
+      if (eventDate === today) {
+        const [endTime] = (event.class_time || event.time || '').split('-').slice(-1)
+        const currentTime = now.getHours().toString().padStart(2, '0') + ':' + 
+                          now.getMinutes().toString().padStart(2, '0')
+        return endTime < currentTime
+      }
+      return false
+    },
+
+    canCheckIn(event) {
+      const now = new Date()
+      const today = this.formatDateToChineseFormat(now)
+      const eventDateStr = event.class_date || event.date || ''
+      const eventDate = eventDateStr.split(/[ 周]/)[0]
+      
+      if (eventDate !== today) return false
+      
+      const [endTime] = (event.class_time || event.time || '').split('-').slice(-1)
+      const currentTime = now.getHours().toString().padStart(2, '0') + ':' + 
+                         now.getMinutes().toString().padStart(2, '0')
+      return currentTime <= endTime
+    },
+
+    onCourseItemTap(e) {
+      // Get the index from the data attribute
+      const index = e.currentTarget.dataset.item;
+      
+      // Get the item from todayCourses using the index
+      const item = this.todayCourses[index];
+      
+      if (item) {
+        console.log('Course item tapped:', item);
+        this.handleCheckIn(item);
+      } else {
+        console.error('No item found at index:', index);
+      }
+    },
+
+    handleDaySelect(date) {
+      console.log('Day selected:', date);
+      
+      // Update the selected date
+      if (date === this.selectedDate) {
+        // If clicking the same date again, reset to today
+        this.selectedDate = null;
+      } else {
+        this.selectedDate = date;
+      }
+    }
+  },
+
+  onLoad() {
+    // 初始化数据
+    const storedCourses = wx.getStorageSync('selected_courses') || []
+    this.courseEvents = storedCourses
+    this.selectedDate = null // Initialize to null (today)
+    this.updateStats()
+  }
+})
+</script>
+
+<config>
+{
+  usingComponents: {
+    "image-upload-dialog": "../components/ImageUploadDialog",
+    "calendar": "../components/Calendar"
+  },
+  navigationBarTitleText: '健康课程管理'
+}
+</config> 
