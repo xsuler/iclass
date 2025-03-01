@@ -115,7 +115,7 @@ wepy.component({
 
         // 使用官方推荐的上传方式
         const uploadTask = wx.uploadFile({
-          url: 'http://localhost:5000/upload',
+          url: 'https://iclass.onrender.com/upload',
           filePath: res.tempFilePaths[0],
           name: 'file',
           formData: {

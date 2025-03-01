@@ -9,7 +9,7 @@ services:
         value: 3.12.0
       - key: OPENAI_API_KEY
         sync: false
-    plan: free
+    plan: starter
     autoDeploy: true
     healthCheckPath: /
     
