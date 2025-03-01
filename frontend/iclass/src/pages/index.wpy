@@ -4,6 +4,38 @@
   min-height: 100vh;
   background: #F8FAFC;
   
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20rpx;
+    
+    .page-title {
+      font-size: 36rpx;
+      font-weight: bold;
+      color: #1F2937;
+    }
+    
+    .upload-btn {
+      background: #3B82F6;
+      color: white;
+      padding: 12rpx 24rpx;
+      border-radius: 8rpx;
+      font-size: 28rpx;
+      display: flex;
+      align-items: center;
+      
+      &:active {
+        opacity: 0.9;
+      }
+      
+      .icon {
+        margin-right: 8rpx;
+        font-weight: bold;
+      }
+    }
+  }
+  
   .stats-grid {
     display: flex;
     justify-content: space-between;
@@ -93,7 +125,7 @@
       &.checked {
         background: #F0FDF4;
         
-        .time { 
+        .time {
           color: #059669;
           position: relative;
           
@@ -158,36 +190,82 @@
   }
 }
 
-.fab-container {
-  position: fixed;
-  right: 32rpx;
-  bottom: 32rpx;
-  z-index: 100;
+.stats-section {
+  background: white;
+  border-radius: 16rpx;
+  padding: 24rpx;
+  margin-bottom: 20rpx;
+  box-shadow: 0 4rpx 12rpx rgba(0,0,0,0.05);
 
-  .fab-btn {
-    width: 120rpx;
-    height: 120rpx;
-    border-radius: 50%;
-    background: #3B82F6;
-    box-shadow: 0 6rpx 16rpx rgba(59, 130, 246, 0.4);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: transform 0.2s ease;
+  .section-title {
+    font-size: 32rpx;
+    font-weight: bold;
+    color: #1F2937;
+    margin-bottom: 16rpx;
+  }
+
+  .chart-container {
+    margin-top: 24rpx;
     
-    &:active {
-      transform: scale(0.95);
+    .chart-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16rpx;
+      
+      .chart-title {
+        font-size: 28rpx;
+        color: #4B5563;
+      }
+      
+      .period-selector {
+        display: flex;
+        gap: 16rpx;
+        
+        .period-btn {
+          padding: 8rpx 16rpx;
+          font-size: 24rpx;
+          border-radius: 8rpx;
+          background: #F3F4F6;
+          color: #4B5563;
+          
+          &.active {
+            background: #3B82F6;
+            color: white;
+          }
+        }
+      }
     }
     
-    text {
-      font-size: 48rpx;
+    .chart-wrapper {
+      width: 100%;
+      height: 180px;
+      position: relative;
+      z-index: 1;
     }
   }
+}
+
+:deep(.ec-canvas) {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
 }
 </style>
 
 <template>
   <view class="dashboard-page">
+    <!-- Header with title and upload button -->
+    <view class="header">
+      <text class="page-title">健康课程管理</text>
+      <view class="upload-btn" @tap="openUpload">
+        <text class="icon">+</text>
+        <text>添加课程</text>
+      </view>
+    </view>
+  
     <!-- 统计卡片 -->
     <view class="stats-grid">
       <view class="stat-card">
@@ -198,9 +276,34 @@
       </view>
     </view>
 
+    <!-- 打卡统计 -->
+    <view class="stats-section" style="display: block">
+      <text class="section-title">打卡统计</text>
+      <view class="chart-container">
+        <view class="chart-header">
+          <text class="chart-title">{{periodTitle}}</text>
+          <view class="period-selector">
+            <view 
+              class="period-btn {{period === 'day' ? 'active' : ''}}" 
+              @tap="setPeriod('day')">日</view>
+            <view 
+              class="period-btn {{period === 'week' ? 'active' : ''}}" 
+              @tap="setPeriod('week')">周</view>
+            <view 
+              class="period-btn {{period === 'month' ? 'active' : ''}}" 
+              @tap="setPeriod('month')">月</view>
+          </view>
+        </view>
+        <view class="chart-wrapper">
+          <ec-canvas id="mychart-dom" canvas-id="mychart" :ec="ec"></ec-canvas>
+        </view>
+      </view>
+    </view>
+
+
     <!-- 日历模块 -->
     <view class="calendar-section">
-      <calendar :events="courseEvents" @checkin="handleCheckIn" @daySelect="handleDaySelect" />
+      <calendar :events="courseEvents" @checkin="handleCheckIn" @daySelect="handleDaySelect" @popupVisibilityChange="handlePopupVisibilityChange" />
     </view>
 
     <!-- 今日课程 -->
@@ -227,13 +330,6 @@
       </view>
     </view>
 
-    <!-- 上传按钮 -->
-    <view class="fab-container">
-      <view class="fab-btn" @tap="openUpload">
-        <text>📸</text>
-      </view>
-    </view>
-
     <image-upload-dialog 
       :isOpen.sync="showUploadDialog"
       @close="closeUpload"
@@ -243,6 +339,7 @@
 </template>
 
 <script>
+import * as echarts from '../ec-canvas/echarts'
 import wepy from '@wepy/core'
 
 wepy.page({
@@ -250,15 +347,107 @@ wepy.page({
     courseEvents: [],
     showUploadDialog: false,
     selectedDate: null,
+    isPopupVisible: false,
     stats: {
       totalCourses: 0,
       completedCourses: 0
+    },
+    period: 'day',
+    periodTitle: '最近7天打卡率',
+    ec: {
+      onInit: (canvas, width, height, dpr) => {
+        // Initialize the chart
+        const chart = echarts.init(canvas, null, {
+          width: width,
+          height: height,
+          devicePixelRatio: dpr,
+        });
+        canvas.setChart(chart);
+        
+        const option = {
+          grid: {
+            top: 30,
+            right: 10,
+            bottom: 10,
+            left: 10,
+            containLabel: true,
+            show: false
+          },
+          xAxis: {
+            type: 'category',
+            boundaryGap: false,
+            data: [],
+            axisLine: {
+              lineStyle: {
+                color: '#4B5563'
+              }
+            },
+            axisLabel: {
+              color: '#4B5563',
+              fontSize: 10
+            }
+          },
+          yAxis: {
+            type: 'value',
+            min: 0,
+            max: 100,
+            interval: 20,
+            axisLabel: {
+              formatter: '{value}%',
+              color: '#4B5563',
+              fontSize: 10
+            },
+            splitLine: {
+              show: false,
+              lineStyle: {
+                color: '#E5E7EB'
+              }
+            }
+          },
+          series: [{
+            data: [],
+            type: 'line',
+            smooth: true,
+            symbol: 'circle',
+            symbolSize: 8,
+            itemStyle: {
+              color: '#3B82F6'
+            },
+            lineStyle: {
+              color: '#3B82F6',
+              width: 2
+            },
+            areaStyle: {
+              color: {
+                type: 'linear',
+                x: 0,
+                y: 0,
+                x2: 0,
+                y2: 1,
+                colorStops: [{
+                  offset: 0,
+                  color: 'rgba(59, 130, 246, 0.2)'
+                }, {
+                  offset: 1,
+                  color: 'rgba(59, 130, 246, 0)'
+                }]
+              }
+            }
+          }]
+        };
+        
+        chart.setOption(option);
+        // Store chart instance in a global property
+        getApp().globalData.chart = chart;
+        return chart;
+      }
     }
   },
 
   computed: {
     todayCourses() {
       const targetDate = this.selectedDate || this.formatDateToChineseFormat(new Date())
+      
       
       return this.courseEvents.filter(course => {
         const courseDateStr = course.class_date || course.date || ''
@@ -296,10 +485,85 @@ wepy.page({
 
     openUpload() {
       this.showUploadDialog = true
+      
+      // Hide chart lines when upload dialog is open
+      const chart = getApp().globalData.chart;
+      if (!chart) return;
+      
+      // When upload dialog is visible, clear the chart data and hide axis lines
+      chart.setOption({
+        xAxis: {
+          axisLine: { show: false },
+          axisLabel: { show: false },
+          data: []
+        },
+        yAxis: {
+          axisLine: { show: false },
+          axisLabel: { show: false },
+          splitLine: { show: false }
+        },
+        series: [{
+          data: []
+        }]
+      });
     },
     
     closeUpload() {
       this.showUploadDialog = false
+      
+      // Restore chart lines when upload dialog is closed
+      const chart = getApp().globalData.chart;
+      if (!chart) return;
+      
+      // When upload dialog is hidden, restore the chart data and axis lines
+      const baseOption = {
+        xAxis: {
+          axisLine: { 
+            show: true,
+            lineStyle: {
+              color: '#4B5563'
+            }
+          },
+          axisLabel: { 
+            show: true,
+            color: '#4B5563',
+            fontSize: 10
+          }
+        },
+        yAxis: {
+          axisLine: { show: true },
+          axisLabel: { 
+            show: true,
+            formatter: '{value}%',
+            color: '#4B5563',
+            fontSize: 10
+          },
+          splitLine: { 
+            show: false,
+            lineStyle: {
+              color: '#E5E7EB'
+            }
+          }
+        }
+      };
+      
+      // Apply base options to restore axis lines
+      chart.setOption(baseOption);
+      
+      // Then regenerate the data based on current period with a slight delay
+      setTimeout(() => {
+        switch(this.period) {
+          case 'day':
+            this.generateDailyStats()
+            break
+          case 'week':
+            this.generateWeeklyStats()
+            break
+          case 'month':
+            this.generateMonthlyStats()
+            break
+        }
+      }, 50);
     },
     
     handleUpload(courses) {
@@ -310,28 +574,51 @@ wepy.page({
       }))
       
       const existingCourses = this.courseEvents || []
-      const newUniqueCourses = formattedCourses.filter(newCourse => 
-        !existingCourses.some(existingCourse => {
+      
+      // Move duplication check to after formatting
+      let duplicateCount = 0
+      const newUniqueCourses = []
+      
+      formattedCourses.forEach(newCourse => {
+        const isDuplicate = existingCourses.some(existingCourse => {
           const newDate = newCourse.class_date.split(/[ 周]/)[0]
           const existingDate = (existingCourse.class_date || existingCourse.date || '').split(/[ 周]/)[0]
           return newDate === existingDate && 
                  (existingCourse.class_time === newCourse.class_time || 
                   existingCourse.time === newCourse.class_time)
         })
-      )
-      
-      this.courseEvents = [...existingCourses, ...newUniqueCourses]
-      this.updateStats()
-      
-      // Save to storage
-      wx.setStorageSync('selected_courses', this.courseEvents)
-      
-      // Show success message
-      wx.showToast({
-        title: newUniqueCourses.length > 0 ? '课程添加成功' : '课程已存在',
-        icon: newUniqueCourses.length > 0 ? 'success' : 'none',
-        duration: 2000
+        
+        if (!isDuplicate) {
+          newUniqueCourses.push(newCourse)
+        } else {
+          duplicateCount++
+        }
       })
+      
+      if (newUniqueCourses.length > 0) {
+        this.courseEvents = [...existingCourses, ...newUniqueCourses]
+        this.updateStats()
+        
+        // Save to storage
+        wx.setStorageSync('selected_courses', this.courseEvents)
+        
+        // Show success message with duplicate info if any
+        const message = duplicateCount > 0 
+          ? `成功导入${newUniqueCourses.length}门课程，${duplicateCount}门课程已存在`
+          : '课程添加成功'
+        
+        wx.showToast({
+          title: message,
+          icon: 'success',
+          duration: 2000
+        })
+      } else {
+        wx.showToast({
+          title: '所选课程已存在',
+          icon: 'none',
+          duration: 2000
+        })
+      }
     },
     
     handleCheckIn(event) {
@@ -350,19 +637,20 @@ wepy.page({
         return;
       }
       
-      // Check if the course is past or already checked in
-     
       console.log('Check-in:', actualEvent.class_name || actualEvent.title);
       
       const index = this.courseEvents.findIndex(e => {
         // Normalize date/time properties
         const eDate = e.class_date || e.date || '';
         const eTime = e.class_time || e.time || '';
+        const eName = e.class_name || e.title || '';
         const actualDate = actualEvent.class_date || actualEvent.date || '';
         const actualTime = actualEvent.class_time || actualEvent.time || '';
+        const actualName = actualEvent.class_name || actualEvent.title || '';
         
         return eDate.split(/[ 周]/)[0] === actualDate.split(/[ 周]/)[0] && 
-               eTime === actualTime;
+               eTime === actualTime &&
+               eName === actualName;  // Add name matching
       });
       
       if (index !== -1) {
@@ -375,14 +663,31 @@ wepy.page({
           });
           return;
         }
-       if (this.isEventPast(actualEvent)) {
-        wx.showToast({
-          title: '课程已结束',
-          icon: 'none',
-          duration: 2000
-        });
-        return;
-      }
+
+        // Check if course is in the past
+        if (this.isEventPast(actualEvent)) {
+          wx.showToast({
+            title: '课程已结束',
+            icon: 'none',
+            duration: 2000
+          });
+          return;
+        }
+
+        // Add check for course not started yet
+        const now = new Date();
+        const currentTime = now.getHours().toString().padStart(2, '0') + ':' + 
+                           now.getMinutes().toString().padStart(2, '0');
+        const [startTime] = (actualEvent.class_time || actualEvent.time || '').split('-');
+        
+        if (currentTime < startTime) {
+          wx.showToast({
+            title: '课程未开始',
+            icon: 'none',
+            duration: 2000
+          });
+          return;
+        }
         
         this.courseEvents[index].checked = true;
         this.updateStats();
@@ -401,11 +706,10 @@ wepy.page({
           duration: 2000
         });
       }
-
     },
     
     updateStats() {
-      this.stats.totalCourses = this.courseEvents.length
+      this.stats.totalCourses = this.courseEvents.length  
       this.stats.completedCourses = this.courseEvents.filter(e => e.checked).length
     },
 
@@ -482,15 +786,266 @@ wepy.page({
       } else {
         this.selectedDate = date;
       }
-    }
+    },
+
+    handlePopupVisibilityChange(isVisible) {
+      this.isPopupVisible = isVisible;
+      
+      // Get the chart instance
+      const chart = getApp().globalData.chart;
+      if (!chart) return;
+      
+      if (isVisible) {
+        // When popup is visible, clear the chart data and hide axis lines
+        chart.setOption({
+          xAxis: {
+            axisLine: { show: false },
+            axisLabel: { show: false },
+            data: []
+          },
+          yAxis: {
+            axisLine: { show: false },
+            axisLabel: { show: false },
+            splitLine: { show: false }
+          },
+          series: [{
+            data: []
+          }]
+        });
+      } else {
+        // When popup is hidden, restore the chart data and axis lines
+        const baseOption = {
+          xAxis: {
+            axisLine: { 
+              show: true,
+              lineStyle: {
+                color: '#4B5563'
+              }
+            },
+            axisLabel: { 
+              show: true,
+              color: '#4B5563',
+              fontSize: 10
+            }
+          },
+          yAxis: {
+            axisLine: { show: true },
+            axisLabel: { 
+              show: true,
+              formatter: '{value}%',
+              color: '#4B5563',
+              fontSize: 10
+            },
+            splitLine: { 
+              show: false,
+              lineStyle: {
+                color: '#E5E7EB'
+              }
+            }
+          }
+        };
+        
+        // Apply base options to restore axis lines
+        chart.setOption(baseOption);
+        
+        // Then regenerate the data based on current period with a slight delay
+        setTimeout(() => {
+          switch(this.period) {
+            case 'day':
+              this.generateDailyStats()
+              break
+            case 'week':
+              this.generateWeeklyStats()
+              break
+            case 'month':
+              this.generateMonthlyStats()
+              break
+          }
+        }, 50);
+      }
+    },
+
+    setPeriod(period) {
+      this.period = period;
+      if (!getApp().globalData.chart) {
+        console.warn('Chart not initialized yet');
+        return;
+      }
+      switch(period) {
+        case 'day':
+          this.periodTitle = '最近7天打卡率'
+          this.generateDailyStats()
+          break
+        case 'week':
+          this.periodTitle = '最近4周打卡率'
+          this.generateWeeklyStats()
+          break
+        case 'month':
+          this.periodTitle = '最近6个月打卡率'
+          this.generateMonthlyStats()
+          break
+      }
+    },
+
+    updateChartData(data) {
+      const chart = getApp().globalData.chart;
+      if (!chart) return;
+      
+      const option = {
+        xAxis: {
+          data: data.map(item => item.label),
+          axisLine: { 
+            show: true,
+            lineStyle: {
+              color: '#4B5563'
+            }
+          },
+          axisLabel: { 
+            show: true,
+            color: '#4B5563',
+            fontSize: 10
+          }
+        },
+        yAxis: {
+          axisLine: { show: true },
+          axisLabel: { 
+            show: true,
+            formatter: '{value}%',
+            color: '#4B5563',
+            fontSize: 10
+          }
+        },
+        series: [{
+          data: data.map(item => item.value)
+        }]
+      };
+      
+      chart.setOption(option);
+    },
+
+    generateDailyStats() {
+      const days = 7
+      const now = new Date()
+      const stats = []
+      
+      for (let i = days - 1; i >= 0; i--) {
+        const date = new Date(now)
+        date.setDate(date.getDate() - i)
+        const dateStr = this.formatDateToChineseFormat(date)
+        
+        const dayEvents = this.courseEvents.filter(event => {
+          const eventDate = (event.class_date || event.date || '').slice(0, 5)
+          return eventDate === dateStr
+        })
+        
+        const total = dayEvents.length
+        const completed = dayEvents.filter(e => e.checked).length
+        const rate = total ? Math.round((completed / total) * 100) : 0
+        
+        stats.push({
+          label: dateStr.split('.')[1],
+          value: rate
+        })
+      }
+      
+      this.updateChartData(stats)
+    },
+
+    generateWeeklyStats() {
+      const weeks = 4
+      const stats = []
+      const now = new Date()
+      
+      for (let i = weeks - 1; i >= 0; i--) {
+        const weekStart = new Date(now)
+        // Set to the beginning of the current week (Sunday)
+        const dayOfWeek = weekStart.getDay()
+        weekStart.setDate(weekStart.getDate() - dayOfWeek - (i * 7))
+        const weekEnd = new Date(weekStart)
+        weekEnd.setDate(weekEnd.getDate() + 6)
+        
+        // Format dates for display in console
+        const weekStartStr = `${weekStart.getMonth() + 1}/${weekStart.getDate()}`
+        const weekEndStr = `${weekEnd.getMonth() + 1}/${weekEnd.getDate()}`
+        
+        const weekEvents = this.courseEvents.filter(event => {
+          const eventDateStr = (event.class_date || event.date || '').slice(0, 5)
+          const [month, day] = eventDateStr.split('.')
+          // Create a proper date object
+          let eventDate = new Date(now.getFullYear(), parseInt(month) - 1, parseInt(day))
+          
+          // Handle year boundary (if month is greater than current month, it's from last year)
+          if (parseInt(month) > now.getMonth() + 1 && weekStart.getMonth() < parseInt(month) - 1) {
+            eventDate = new Date(now.getFullYear() - 1, parseInt(month) - 1, parseInt(day))
+          }
+          
+          return eventDate >= weekStart && eventDate <= weekEnd
+        })
+        
+        const total = weekEvents.length
+        const completed = weekEvents.filter(e => e.checked).length
+        const rate = total ? Math.round((completed / total) * 100) : 0
+        
+        stats.push({
+          label: `${weekStartStr}-${weekEndStr}`,
+          value: rate
+        })
+      }
+      
+      this.updateChartData(stats)
+    },
+
+    generateMonthlyStats() {
+      const months = 6
+      const stats = []
+      const now = new Date()
+      
+      for (let i = months - 1; i >= 0; i--) {
+        const monthStart = new Date(now.getFullYear(), now.getMonth() - i, 1)
+        const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0)
+        
+        const monthEvents = this.courseEvents.filter(event => {
+          const eventDateStr = (event.class_date || event.date || '').slice(0, 5)
+          const [month, day] = eventDateStr.split('.')
+          // Create a proper date object
+          let eventDate = new Date(now.getFullYear(), parseInt(month) - 1, parseInt(day))
+          
+          // Handle year boundary (if month is greater than current month, it's from last year)
+          if (parseInt(month) > now.getMonth() + 1 && monthStart.getMonth() < parseInt(month) - 1) {
+            eventDate = new Date(now.getFullYear() - 1, parseInt(month) - 1, parseInt(day))
+          }
+          
+          return eventDate >= monthStart && eventDate <= monthEnd
+        })
+        
+        const total = monthEvents.length
+        const completed = monthEvents.filter(e => e.checked).length
+        const rate = total ? Math.round((completed / total) * 100) : 0
+        
+        stats.push({
+          label: `${monthStart.getMonth() + 1}月`,
+          value: rate
+        })
+      }
+      
+      this.updateChartData(stats)
+    },
   },
 
   onLoad() {
-    // 初始化数据
+    // Initialize global chart storage
+    if (!getApp().globalData) {
+      getApp().globalData = {};
+    }
     const storedCourses = wx.getStorageSync('selected_courses') || []
     this.courseEvents = storedCourses
-    this.selectedDate = null // Initialize to null (today)
+    this.selectedDate = null
     this.updateStats()
+    
+    // Delay initial chart data generation to ensure chart is ready
+    setTimeout(() => {
+      this.generateDailyStats(); // Initialize with daily stats
+    }, 500);
   }
 })
 </script>
@@ -499,7 +1054,9 @@ wepy.page({
 {
   usingComponents: {
     "image-upload-dialog": "../components/ImageUploadDialog",
-    "calendar": "../components/Calendar"
+    "calendar": "../components/Calendar",
+    "ec-canvas": "../ec-canvas/ec-canvas",
+    "course-confirm-dialog": "../components/CourseConfirmDialog"
   },
   navigationBarTitleText: '健康课程管理'
 }

@@ -1,40 +1,41 @@
 <style lang="less">
-  panel {
-    width: 100%;
-  }
   .panel {
     width: 100%;
-    margin-top: 20rpx;
+    background: #fff;
+    border-radius: 16rpx;
+    padding: 24rpx;
+    margin-bottom: 20rpx;
+    box-shadow: 0 4rpx 12rpx rgba(0,0,0,0.05);
     text-align: left;
-    font-size: 12px;
-    padding-top: 20rpx;
-    padding-left: 50rpx;
-    padding-bottom: 20rpx;
-    border: 1px solid #ccc;
+    z-index: 10010;
+
+    
 
     .title {
-      padding-bottom: 20rpx;
-      font-size: 14px;
+      padding-bottom: 16rpx;
+      font-size: 32rpx;
       font-weight: bold;
+      color: #1F2937;
     }
     .info {
-      padding: 15rpx;
-    }
-    .testcounter {
-      margin-top: 15rpx;
-      position: absolute;
-    }
-    .counterview {
-      margin-left: 120rpx;
+      padding: 8rpx 0;
+      font-size: 28rpx;
+      color: #4B5563;
+      display: flex;
+      flex-direction: column;
+      gap: 8rpx;
     }
   }
 </style>
 <template>
   <div class="panel">
     <slot name="title">
-      Title
+      <view class="title">课程详情</view>
     </slot>
     <slot>
+      <view class="info">
+        <!-- Default content will be replaced by actual slot content -->
+      </view>
     </slot>
   </div>
 </template>

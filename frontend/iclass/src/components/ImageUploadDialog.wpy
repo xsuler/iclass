@@ -68,6 +68,14 @@
       </view>
     </view>
   </view>
+  
+  <!-- Add Course Confirmation Dialog -->
+  <course-confirm-dialog 
+    :isOpen.sync="showConfirmDialog"
+    :courses.sync="detectedCourses"
+    @close="handleConfirmClose"
+    @confirm="handleConfirmCourses"
+  />
 </template>
 
 <script>
@@ -84,7 +92,9 @@ wepy.component({
 
   data: {
     isUploading: false,
-    error: ''
+    error: '',
+    showConfirmDialog: false,
+    detectedCourses: []
   },
 
   methods: {
@@ -115,12 +125,17 @@ wepy.component({
             if (res.statusCode === 200) {
               try {
                 const data = JSON.parse(res.data)
-                if (data.courses) {
-                  // Use $emit instead of directly calling the prop
-                  this.$emit('upload', data.courses)
-                  this.handleClose()
+                if (data.courses && data.courses.length > 0) {
+                  // Instead of directly emitting, show confirmation dialog
+                  this.detectedCourses = data.courses
+                  console.log('Detected courses:', this.detectedCourses)
+                  this.showConfirmDialog = true
                 } else {
-                  this.error = '服务器返回数据格式错误'
+                  wx.showToast({
+                    title: '未检测到课程',
+                    icon: 'none',
+                    duration: 2000
+                  })
                 }
               } catch (e) {
                 this.error = '数据解析失败'
@@ -148,7 +163,29 @@ wepy.component({
         this.isUploading = false
         console.error(err)
       }
+    },
+    
+    handleConfirmClose() {
+      this.showConfirmDialog = false
+      this.detectedCourses = []
+    },
+    
+    handleConfirmCourses(selectedCourses) {
+      // Emit the selected courses to parent
+      this.$emit('upload', selectedCourses)
+      
+      // Close both dialogs
+      this.showConfirmDialog = false
+      this.handleClose()
     }
   }
 })
-</script> 
+</script>
+
+<config>
+{
+  usingComponents: {
+    "course-confirm-dialog": "./CourseConfirmDialog"
+  }
+}
+</config> 

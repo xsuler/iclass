@@ -37,24 +37,12 @@ def upload_file():
     filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
     file.save(filepath)
 
-    prompt = """
-            summarize the image in json format, this is a class table, you should give me following format output:
-            {
-                "class_name": "Class Name",
-                "class_date": "02.15 周六",
-                "class_time": "10:00-11:00",
-                "class_location": "Class Location",
-                "class_instructor": "Class Instructor",
-                "class_score_stars": 0
-            }
-            """
-    
     retry_count = 0
     last_error = None
     
     while retry_count < app.config['MAX_RETRIES']:
         try:
-            result = analyze_image(filepath, prompt)
+            result = analyze_image(filepath)
             
             # Check if result is None
             if result is None:
@@ -87,14 +75,15 @@ def upload_file():
             session_id = session_counter
             courses_db[session_id] = courses
             session_counter += 1
-            
-            # Ensure courses is a list
-            if not isinstance(courses, list):
-                courses = [courses]
+
+            final_courses = []
+            for course in courses:
+                if course["class_name"] is not None:
+                    final_courses.append(course)
             
             return jsonify({
                 "session_id": session_id,
-                "courses": courses
+                "courses": final_courses
             })
             
         except Exception as e:

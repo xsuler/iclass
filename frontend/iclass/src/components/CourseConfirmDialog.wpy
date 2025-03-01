@@ -1,0 +1,583 @@
+<style lang="less">
+.course-confirm-dialog {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+
+  .dialog-content {
+    background: white;
+    border-radius: 16rpx;
+    padding: 24rpx;
+    width: 90%;
+    max-height: 80vh;
+    box-shadow: 0 8rpx 32rpx rgba(0,0,0,0.1);
+    display: flex;
+    flex-direction: column;
+    
+    .dialog-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20rpx;
+      
+      .title {
+        font-size: 32rpx;
+        font-weight: bold;
+        color: #1F2937;
+      }
+      
+      .close {
+        font-size: 36rpx;
+        color: #6B7280;
+        padding: 8rpx;
+        
+        &:active {
+          opacity: 0.7;
+        }
+      }
+    }
+    
+    .summary-section {
+      margin-bottom: 24rpx;
+      padding: 8rpx 0;
+      border-bottom: 1rpx solid #EFF6FF;
+    }
+    
+    .dialog-body {
+      flex: 1;
+      overflow-y: auto;
+      
+      .date-group {
+        margin-bottom: 24rpx;
+        
+        .date-header {
+          font-size: 28rpx;
+          font-weight: bold;
+          color: #3B82F6;
+          padding: 8rpx 0;
+          border-bottom: 1rpx solid #EFF6FF;
+          margin-bottom: 12rpx;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          
+          .select-all {
+            font-size: 24rpx;
+            color: #6B7280;
+            font-weight: normal;
+          }
+        }
+        
+        .course-item {
+          padding: 16rpx;
+          border-radius: 8rpx;
+          background: #F9FAFB;
+          margin-bottom: 8rpx;
+          display: flex;
+          align-items: center;
+          
+          &:active {
+            background: #F3F4F6;
+          }
+          
+          .checkbox {
+            margin-right: 16rpx;
+            width: 36rpx;
+            height: 36rpx;
+            border-radius: 4rpx;
+            border: 2rpx solid #D1D5DB;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            transition: all 0.2s ease;
+            position: relative;
+            
+            &.checked {
+              background: #3B82F6;
+              border-color: transparent;
+              transform: scale(1.05);
+              
+              .check-icon {
+                color: white;
+                font-size: 28rpx;
+                font-weight: bold;
+                position: relative;
+                top: -1rpx;
+              }
+            }
+            
+            &:active:not(.checked) {
+              border-color: #3B82F6;
+              background-color: #EFF6FF;
+            }
+          }
+          
+          .course-details {
+            flex: 1;
+            
+            .course-name {
+              font-size: 28rpx;
+              color: #1F2937;
+              margin-bottom: 4rpx;
+            }
+            
+            .course-info {
+              font-size: 24rpx;
+              color: #6B7280;
+              display: flex;
+              flex-wrap: wrap;
+              
+              .time, .location, .instructor {
+                margin-right: 16rpx;
+              }
+            }
+          }
+        }
+      }
+      .no-courses {
+        text-align: center;
+        padding: 48rpx 0;
+        color: #6B7280;
+        font-size: 28rpx;
+      }
+    }
+    
+    .dialog-footer {
+      margin-top: 24rpx;
+      display: flex;
+      gap: 16rpx;
+      
+      button {
+        flex: 1;
+        font-size: 28rpx;
+        padding: 16rpx 0;
+        border-radius: 8rpx;
+        
+        &.cancel-btn {
+          background: #F3F4F6;
+          color: #4B5563;
+        }
+        
+        &.confirm-btn {
+          background: #3B82F6;
+          color: white;
+          
+          &:disabled {
+            opacity: 0.5;
+          }
+        }
+      }
+    }
+  }
+}
+</style>
+
+<template>
+  <view class="course-confirm-dialog" wx:if="{{isOpen}}">
+    <view class="dialog-content">
+      <view class="dialog-header">
+        <text class="title">确认导入课程</text>
+        <text class="close" @tap="handleClose">×</text>
+      </view>
+      
+      <view class="summary-section" wx:if="{{totalCourses > 0}}">
+        <text>共检测到 {{totalCourses}} 门课程，请选择需要导入的课程</text>
+      </view>
+      
+      <view class="dialog-body">
+        <block wx:if="{{hasGroupedCourses}}">
+          <view class="date-group" wx:for="{{groupedDates}}" wx:key="*this" wx:for-item="date">
+            <view class="date-header">
+              <text>{{date}} ({{groupedCourses[date].length}}门课)</text>
+              <text class="select-all" @tap.stop="toggleDateSelection(date)">
+                {{isDateFullySelected(date) ? '取消全选' : '全选'}}
+              </text>
+            </view>
+            
+            <view 
+              class="course-item" 
+              wx:for="{{groupedCourses[date]}}" 
+              wx:for-item="course"
+              wx:for-index="index"
+              wx:key="index"
+              data-date="{{date}}"
+              data-index="{{index}}"
+              @tap="onCourseItemTap"
+            >
+              <view class="checkbox {{course.selected === true ? 'checked' : ''}}" data-selected="{{course.selected}}">
+                <text wx:if="{{course.selected === true}}" class="check-icon">✓</text>
+              </view>
+              <view class="course-details">
+                <text class="course-name">{{course.class_name || course.title}}</text>
+                <view class="course-info">
+                  <text class="time">⏱️ {{course.class_time || course.time}}</text>
+                  <text wx:if="{{course.class_location}}" class="location">📍 {{course.class_location}}</text>
+                  <text wx:if="{{course.class_instructor}}" class="instructor">👤 {{course.class_instructor}}</text>
+                </view>
+              </view>
+            </view>
+          </view>
+        </block>
+        <view wx:else class="no-courses">
+          <text>没有可导入的课程</text>
+        </view>
+      </view>
+
+      <view class="dialog-footer">
+        <button class="cancel-btn" @tap="handleClose">取消</button>
+        <button 
+          class="confirm-btn" 
+          @tap="handleConfirm"
+          disabled="{{!hasSelectedCourses}}"
+        >
+          确认导入 ({{selectedCount}})
+        </button>
+      </view>
+    </view>
+  </view>
+</template>
+
+<script>
+import wepy from '@wepy/core'
+
+wepy.component({
+  props: {
+    isOpen: Boolean,
+    courses: {
+      type: Array,
+      default: []
+    }
+  },
+
+  data: {
+    groupedCourses: {},
+    selectedCount: 0,
+    totalCourses: 0
+  },
+
+  computed: {
+    hasSelectedCourses() {
+      return this.selectedCount > 0
+    },
+    
+    groupedDates() {
+      // Get all dates and filter out any that have empty arrays
+      return Object.keys(this.groupedCourses || {})
+        .filter(date => 
+          this.groupedCourses[date] && 
+          Array.isArray(this.groupedCourses[date]) && 
+          this.groupedCourses[date].length > 0
+        )
+        .sort();
+    },
+    
+    hasGroupedCourses() {
+      return this.groupedDates.length > 0
+    }
+  },
+
+  watch: {
+    courses: {
+      immediate: true,
+      handler(newCourses) {
+        if (newCourses && newCourses.length > 0) {
+          this.processCourses(newCourses)
+        } else {
+          // Reset state when no courses
+          this.groupedCourses = {}
+          this.selectedCount = 0
+          this.totalCourses = 0
+        }
+      }
+    },
+    
+    isOpen(newVal) {
+      if (newVal) {
+        if (this.courses && this.courses.length > 0) {
+          this.processCourses(this.courses)
+        } else {
+          // Reset state when dialog is opened without courses
+          this.groupedCourses = {}
+          this.selectedCount = 0
+          this.totalCourses = 0
+        }
+      }
+    }
+  },
+
+  methods: {
+    processCourses(courses) {
+      if (!courses || courses.length === 0) {
+        this.groupedCourses = {};
+        this.selectedCount = 0;
+        this.totalCourses = 0;
+        return;
+      }
+
+      // Reset groupedCourses to ensure clean state
+      this.groupedCourses = {};
+      
+      // Group courses by date
+      const grouped = {};
+      
+      courses.forEach(course => {
+        const rawDate = course.class_date || course.date || '';
+        let formattedDate = '';
+        
+        // Try different date formats
+        if (rawDate) {
+          // Handle MM.DD format
+          const mmDdMatch = rawDate.match(/(\d{1,2})\.(\d{1,2})/);
+          if (mmDdMatch) {
+            const month = mmDdMatch[1].padStart(2, '0');
+            const day = mmDdMatch[2].padStart(2, '0');
+            formattedDate = `${month}.${day}`;
+          } 
+          // Handle YYYY-MM-DD format
+          else if (rawDate.match(/^\d{4}-\d{2}-\d{2}/)) {
+            const dateParts = rawDate.split('-');
+            formattedDate = `${dateParts[1]}.${dateParts[2]}`;
+          }
+          // Handle YYYY/MM/DD format
+          else if (rawDate.match(/^\d{4}\/\d{2}\/\d{2}/)) {
+            const dateParts = rawDate.split('/');
+            formattedDate = `${dateParts[1]}.${dateParts[2]}`;
+          }
+          // If no recognized format, use the raw date
+          else {
+            console.warn('Unrecognized date format:', rawDate);
+            formattedDate = '未知日期';
+          }
+        } else {
+          console.warn('No date found for course:', course);
+          formattedDate = '未知日期';
+        }
+        
+        // Initialize the array if it doesn't exist
+        if (!grouped[formattedDate]) {
+          grouped[formattedDate] = [];
+        }
+        
+        // Add selected property to each course
+        grouped[formattedDate].push({
+          ...course,
+          selected: true // Default to selected
+        });
+      });
+      
+      // Filter out any empty groups before sorting and setting
+      const validGroups = Object.keys(grouped).filter(date => 
+        grouped[date] && Array.isArray(grouped[date]) && grouped[date].length > 0
+      );
+      
+      // Sort dates and initialize in Vue's reactive system
+      validGroups
+        .sort((a, b) => {
+          // Handle special case for unknown dates
+          if (a === '未知日期') return 1;  // Move unknown dates to the end
+          if (b === '未知日期') return -1;
+          
+          // Try to parse dates as MM.DD format
+          const aParts = a.split('.');
+          const bParts = b.split('.');
+          
+          // Skip comparison if format is not as expected
+          if (aParts.length !== 2 || bParts.length !== 2) {
+            return a.localeCompare(b); // Fallback to string comparison
+          }
+          
+          // Convert to numbers for comparison
+          const aMonth = parseInt(aParts[0], 10);
+          const aDay = parseInt(aParts[1], 10);
+          const bMonth = parseInt(bParts[0], 10);
+          const bDay = parseInt(bParts[1], 10);
+          
+          // Check if parsing was successful
+          if (isNaN(aMonth) || isNaN(aDay) || isNaN(bMonth) || isNaN(bDay)) {
+            return a.localeCompare(b); // Fallback to string comparison
+          }
+          
+          // Compare months first, then days
+          if (aMonth !== bMonth) {
+            return aMonth - bMonth;
+          }
+          return aDay - bDay;
+        })
+        .forEach(date => {
+          // Use $set to ensure the array is reactive
+          this.$set(this.groupedCourses, date, grouped[date]);
+        });
+      
+      this.updateSelectedCount();
+      
+      // Log for debugging
+      console.log('Processed courses:', this.groupedCourses);
+      console.log('Grouped dates:', Object.keys(this.groupedCourses));
+      console.log('Total courses:', this.totalCourses);
+      console.log('Selected courses:', this.selectedCount);
+    },
+    
+    updateSelectedCount() {
+      let count = 0;
+      let total = 0;
+      
+      // Get a fresh copy of the dates
+      const dates = Object.keys(this.groupedCourses || {});
+      
+      // Iterate through the dates
+      dates.forEach(date => {
+        // Get the courses array for this date
+        const coursesForDate = this.groupedCourses[date];
+        
+        // Skip if not found or not an array
+        if (!coursesForDate || !Array.isArray(coursesForDate)) {
+          return;
+        }
+        
+        // Update totals
+        total += coursesForDate.length;
+        count += coursesForDate.filter(course => course && course.selected).length;
+      });
+      
+      // Update the data using $set to ensure reactivity
+      this.$set(this, 'selectedCount', count);
+      this.$set(this, 'totalCourses', total);
+      
+      // Log for debugging
+      console.log('Updated counts - Selected:', count, 'Total:', total);
+    },
+    
+    toggleCourseSelection(date, index) {
+      console.log('Toggling course selection:', date, index);
+      
+      if (!date || date === '' || !this.groupedCourses[date]) {
+        console.error('Invalid date:', date);
+        return;
+      }
+      
+      if (!Array.isArray(this.groupedCourses[date]) || !this.groupedCourses[date][index]) {
+        console.error('Course not found at', date, index);
+        return;
+      }
+      
+      try {
+        // Create a new copy of the entire groupedCourses object
+        const newGroupedCourses = { ...this.groupedCourses };
+        
+        // Create a new copy of the courses array for this date
+        newGroupedCourses[date] = [...this.groupedCourses[date]];
+        
+        // Get the course and create a new object with toggled selection
+        const course = newGroupedCourses[date][index];
+        const currentSelected = !!course.selected;
+        newGroupedCourses[date][index] = { ...course, selected: !currentSelected };
+        
+        // Update the entire groupedCourses object
+        this.groupedCourses = newGroupedCourses;
+        
+        // Force update using $set on the root level
+        this.$set(this, 'groupedCourses', newGroupedCourses);
+        
+        console.log('Updated state:', !currentSelected);
+        console.log('Course after update:', this.groupedCourses[date][index]);
+        
+        this.updateSelectedCount();
+      } catch (error) {
+        console.error('Error toggling course selection:', error);
+      }
+    },
+    
+    toggleDateSelection(date) {
+      console.log('Toggling date selection:', date);
+      
+      if (!date || date === '' || !this.groupedCourses[date]) {
+        console.error('Invalid date:', date);
+        return;
+      }
+      
+      if (!Array.isArray(this.groupedCourses[date]) || this.groupedCourses[date].length === 0) {
+        console.error('No courses found for date:', date);
+        return;
+      }
+      
+      try {
+        const isFullySelected = this.isDateFullySelected(date);
+        console.log('Is fully selected:', isFullySelected);
+        
+        // Create a new copy of the entire groupedCourses object
+        const newGroupedCourses = { ...this.groupedCourses };
+        
+        // Create a new array with toggled selection for all courses
+        newGroupedCourses[date] = this.groupedCourses[date].map(course => ({
+          ...course,
+          selected: !isFullySelected
+        }));
+        
+        // Update the entire groupedCourses object
+        this.groupedCourses = newGroupedCourses;
+        
+        // Force update using $set on the root level
+        this.$set(this, 'groupedCourses', newGroupedCourses);
+        
+        this.updateSelectedCount();
+      } catch (error) {
+        console.error('Error toggling date selection:', error);
+      }
+    },
+    
+    isDateFullySelected(date) {
+      if (!this.groupedCourses[date] || !Array.isArray(this.groupedCourses[date]) || this.groupedCourses[date].length === 0) {
+        console.log('No courses for date:', date);
+        return false;
+      }
+      
+      const allSelected = this.groupedCourses[date].every(course => !!course.selected);
+      console.log('All courses selected for date', date, ':', allSelected);
+      return allSelected;
+    },
+    
+    getSelectedCourses() {
+      const selected = []
+      
+      Object.keys(this.groupedCourses).forEach(date => {
+        const courses = this.groupedCourses[date];
+        if (Array.isArray(courses)) {
+          courses.forEach(course => {
+            if (course && course.selected) {
+              selected.push(course)
+            }
+          });
+        } else {
+          console.error('Expected array for date', date, 'but got:', typeof courses);
+        }
+      })
+      
+      return selected
+    },
+
+    handleClose() {
+      this.$emit('close')
+    },
+
+    handleConfirm() {
+      const selectedCourses = this.getSelectedCourses()
+      this.$emit('confirm', selectedCourses)
+    },
+
+    onCourseItemTap(e) {
+      const date = e.currentTarget.dataset.date;
+      const index = e.currentTarget.dataset.index;
+      console.log('Course item tapped:', date, index);
+      this.toggleCourseSelection(date, index);
+    }
+  }
+})
+</script> 
