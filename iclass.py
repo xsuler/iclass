@@ -450,6 +450,14 @@ This is a class schedule table. For each day and each class cell, extract the fo
 - Class instructor
 - Any other relevant details
 
+layout of a card cell:
+header : class date
+[class name]
+[class time]
+[class instructor]
+[class location]
+[score stars]
+
 Return your analysis as a JSON array of class objects with the following structure:
 [
   {{

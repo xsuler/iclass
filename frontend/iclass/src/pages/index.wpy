@@ -654,48 +654,29 @@ wepy.page({
       });
       
       if (index !== -1) {
-        // Check if already checked in
-        if (this.courseEvents[index].checked) {
-          wx.showToast({
-            title: '课程已打卡',
-            icon: 'none',
-            duration: 2000
-          });
-          return;
-        }
-
-        // Check if course is in the past
-        if (this.isEventPast(actualEvent)) {
-          wx.showToast({
-            title: '课程已结束',
-            icon: 'none',
-            duration: 2000
-          });
-          return;
-        }
-
-        // Add check for course not started yet
-        const now = new Date();
-        const currentTime = now.getHours().toString().padStart(2, '0') + ':' + 
-                           now.getMinutes().toString().padStart(2, '0');
-        const [startTime] = (actualEvent.class_time || actualEvent.time || '').split('-');
+        // Toggle checked status
+        this.courseEvents[index].checked = !this.courseEvents[index].checked;
         
-        if (currentTime < startTime) {
-          wx.showToast({
-            title: '课程未开始',
-            icon: 'none',
-            duration: 2000
-          });
-          return;
-        }
-        
-        this.courseEvents[index].checked = true;
+        // Update stats and storage
         this.updateStats();
         wx.setStorageSync('selected_courses', this.courseEvents);
         
+        // Update chart based on current period
+        switch(this.period) {
+          case 'day':
+            this.generateDailyStats();
+            break;
+          case 'week':
+            this.generateWeeklyStats();
+            break;
+          case 'month':
+            this.generateMonthlyStats();
+            break;
+        }
+
         wx.showToast({
-          title: '打卡成功',
-          icon: 'success',
+          title: this.courseEvents[index].checked ? '打卡成功' : '取消打卡成功',
+          icon: this.courseEvents[index].checked ? 'success' : 'none',
           duration: 2000
         });
       } else {
@@ -952,47 +933,50 @@ wepy.page({
     },
 
     generateWeeklyStats() {
-      const weeks = 4
-      const stats = []
-      const now = new Date()
+      const weeks = 4;
+      const stats = [];
+      const now = new Date();
       
       for (let i = weeks - 1; i >= 0; i--) {
-        const weekStart = new Date(now)
-        // Set to the beginning of the current week (Sunday)
-        const dayOfWeek = weekStart.getDay()
-        weekStart.setDate(weekStart.getDate() - dayOfWeek - (i * 7))
-        const weekEnd = new Date(weekStart)
-        weekEnd.setDate(weekEnd.getDate() + 6)
+        const weekStart = new Date(now);
+        weekStart.setDate(weekStart.getDate() - (i * 7));
         
-        // Format dates for display in console
-        const weekStartStr = `${weekStart.getMonth() + 1}/${weekStart.getDate()}`
-        const weekEndStr = `${weekEnd.getMonth() + 1}/${weekEnd.getDate()}`
+        // Adjust to start of week (Monday)
+        const day = weekStart.getDay();
+        const diff = day === 0 ? 6 : day - 1; // If Sunday, go back 6 days, else go back to Monday
+        weekStart.setDate(weekStart.getDate() - diff);
+        
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekEnd.getDate() + 6); // End on Sunday
+        
+        // Format dates for label
+        const weekStartStr = `${weekStart.getMonth() + 1}/${weekStart.getDate()}`;
+        const weekEndStr = `${weekEnd.getMonth() + 1}/${weekEnd.getDate()}`;
         
         const weekEvents = this.courseEvents.filter(event => {
-          const eventDateStr = (event.class_date || event.date || '').slice(0, 5)
-          const [month, day] = eventDateStr.split('.')
-          // Create a proper date object
-          let eventDate = new Date(now.getFullYear(), parseInt(month) - 1, parseInt(day))
+          const eventDateStr = (event.class_date || event.date || '').slice(0, 5);
+          const [month, day] = eventDateStr.split('.');
+          let eventDate = new Date(now.getFullYear(), parseInt(month) - 1, parseInt(day));
           
-          // Handle year boundary (if month is greater than current month, it's from last year)
-          if (parseInt(month) > now.getMonth() + 1 && weekStart.getMonth() < parseInt(month) - 1) {
-            eventDate = new Date(now.getFullYear() - 1, parseInt(month) - 1, parseInt(day))
+          // Handle year boundary
+          if (month > now.getMonth() + 1) {
+            eventDate.setFullYear(eventDate.getFullYear() - 1);
           }
           
-          return eventDate >= weekStart && eventDate <= weekEnd
-        })
+          return eventDate >= weekStart && eventDate <= weekEnd;
+        });
         
-        const total = weekEvents.length
-        const completed = weekEvents.filter(e => e.checked).length
-        const rate = total ? Math.round((completed / total) * 100) : 0
+        const total = weekEvents.length;
+        const completed = weekEvents.filter(e => e.checked).length;
+        const rate = total ? Math.round((completed / total) * 100) : 0;
         
         stats.push({
           label: `${weekStartStr}-${weekEndStr}`,
           value: rate
-        })
+        });
       }
       
-      this.updateChartData(stats)
+      this.updateChartData(stats);
     },
 
     generateMonthlyStats() {
