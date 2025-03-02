@@ -34,7 +34,8 @@ module.exports = {
   },
   plugins: [],
   appConfig: {
-    noPromiseAPI: ['createSelectorQuery']
+    noPromiseAPI: ['createSelectorQuery'],
+    lazyCodeLoading: "requiredComponents"
   }
 }
 

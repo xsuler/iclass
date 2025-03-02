@@ -3,10 +3,9 @@ version: '3'
 services:
   iclass-api:
     build: .
-    ports:
-      - "8000:8000"
+    network_mode: host
     environment:
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_API_KEY=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
     volumes:
       - ./uploads:/app/uploads
     restart: unless-stopped 

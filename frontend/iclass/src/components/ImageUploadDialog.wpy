@@ -58,7 +58,7 @@
       >
         <view class="upload-placeholder">
           <text class="icon">{{isUploading ? '⏳' : '📸'}}</text>
-          <text class="text">{{isUploading ? '正在上传中...' : '点击上传图片'}}</text>
+          <text class="text">{{isUploading ? '正在识别中...' : '点击上传图片'}}</text>
           <text class="hint">{{isUploading ? '请稍候' : '支持拍照或从相册选择'}}</text>
         </view>
       </view>
@@ -79,7 +79,9 @@
 </template>
 
 <script>
+
 import wepy from '@wepy/core'
+
 
 wepy.component({
   props: {
@@ -115,7 +117,7 @@ wepy.component({
 
         // 使用官方推荐的上传方式
         const uploadTask = wx.uploadFile({
-          url: 'https://iclass.onrender.com/upload',
+          url: 'https://32kk416rs228.vicp.fun/upload',
           filePath: res.tempFilePaths[0],
           name: 'file',
           formData: {
